@@ -3,6 +3,7 @@
 import ddf.minim.*;
 import ddf.minim.analysis.*;
 import javax.swing.*; 
+import http.requests.*;
 
 Minim minim;
 
@@ -27,6 +28,28 @@ int Hc, Sc;
 float count=0;
 double freqH=2*Math.PI/120;
 double freqS=2*Math.PI/60;
+
+// clara
+
+color new_color = #ffffff;
+color old_color = #ffffff;
+color cur_color = #ffffff;
+float hc;
+float sc;
+float bc;
+
+
+int r=0;
+int t=0;
+GetRequest req;
+float colorSec=2;
+float refreshColor=colorSec*fR;
+
+float transSec = 3;
+float transFrame = fR*transSec;
+float countTrans=0.0;
+//
+
 
 // variables for canvas 
 int canvasWidth=0;
@@ -91,6 +114,8 @@ void setup()
     terrain = new float[cols][rows];
     Hc=0;
     Sc=0;    
+   
+   req = new GetRequest(api);
 }
 
 void getTerrain(){
@@ -111,8 +136,7 @@ void getTerrain(){
 
 
 void getSpectrum(){
-  
-  
+    
   for(int i = 0; i < specSize; i++)
   {
     float val=fft.getBand(i);
@@ -123,12 +147,26 @@ void getSpectrum(){
   }
   
 }
+
+
+void updateColor(){  
+  req.send();
+  JSONObject el = parseJSONObject(req.getContent());
+  new_color = unhex(el.getString("color").replace("#",""));
+}
+
+
 void plotTerrain(){
-  Hc=int(Math.round(50*Math.cos(count*freqH)));
-  Sc=int(Math.round(55+15*Math.cos(count*freqS)));
+  //Hc=int(Math.round(50*Math.cos(count*freqH)));
+  //Sc=int(Math.round(55+15*Math.cos(count*freqS)));
+  hc = hue(cur_color);
+  sc = saturation(cur_color);
+  bc = brightness(cur_color);
   colorMode(HSB, 100);
-  stroke(Hc,Sc,255);
   
+  //stroke(Hc,Sc,255);
+  stroke(hc,sc,bc);
+
   noFill();
 
   translate(width/2, height/2+50);
@@ -146,7 +184,16 @@ void plotTerrain(){
 }
 
 
-void draw() {  
+void draw() {
+  r=r+1;
+  t+=1/fR;
+  
+  if(r>refreshColor){
+    r=0;
+    //updateColor();
+    thread("updateColor");
+  }
+  
   if(song_mic){
     fft.forward(song.mix);       
   }
@@ -156,9 +203,32 @@ void draw() {
   background(0);
   
   getSpectrum();
-  getTerrain();
+  getTerrain();   
+
+  if (new_color != old_color){
+    cur_color = lerpColor(old_color, new_color, countTrans/transFrame);
+    println(countTrans);
+    if (countTrans >= transFrame){
+      old_color = new_color;
+      countTrans = 0.0;
+      //println(old_color);
+      //println(cur_color);
+    }
+    else{
+      countTrans = countTrans + 1.0;//fR;
+      //println(countTrans);
+      //println(transFrame);
+    }
+  }
+  else{
+    cur_color = old_color;
+  }
+  
   plotTerrain();
+  
+  
   count=count+1.0/fR;
+
 }
 
 
